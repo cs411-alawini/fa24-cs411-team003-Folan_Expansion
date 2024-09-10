@@ -19,9 +19,9 @@
 
 |   Info      |        Description     |
 | ----------- | ---------------------- |
-|  Title      |           TBD          |
-| System URL  |           TBD          |
-| Video Link  |           TBD          |
+|  Title      |      ProjectTitle      |
+| System URL  |     link_to_system     |
+| Video Link  |      link_to_video     |
 
 ## Project Summary
-TBD!
+This is a summary of the project!
