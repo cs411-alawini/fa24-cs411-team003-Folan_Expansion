@@ -10,10 +10,10 @@
 | Captain     | prajwal9@illinois.edu        |
 | Member1     | Alex Yasumоto                |
 | Member1     | ay13@illinois.edu            |
-| Member2     |                          |
-| Member2     |    |  
-| Member3     |  |
-| Member3     |         |
+| Member2     | Jack Huang                   |
+| Member2     | haoh11@illinois.edu          |  
+| Member3     | Jason Li                     |
+| Member3     | bl34@illinois.edu            |
 
 ## Project Information
 
