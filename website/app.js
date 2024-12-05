@@ -5,6 +5,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const topPapersDay = document.getElementById("topPapersDay");
   const topPapersAllTime = document.getElementById("topPapersAllTime");
 
+  // Update navigation menu
+  /*
+  const header = document.querySelector('header');
+  header.innerHTML += `
+    <nav>
+      <a href="profile.html">Profile</a> | <a href="/logout">Logout</a>
+    </nav>
+  `;
+  */
+
   const renderSearchResults = (results) => {
     resultList.innerHTML = "";
     if (results.length === 0) {
@@ -18,8 +28,35 @@ document.addEventListener("DOMContentLoaded", () => {
           <p><em>Citations:</em> ${result.citation_num}</p>
           <p><em>Relevance Score:</em> ${result.relevance_score}</p>
           <p><em>Composite Score:</em> ${result.composite_score}</p>
+          <button class="like-btn" data-paper-id="${result.paper_id}">
+            ${result.liked ? 'Unlike' : 'Like'}
+          </button>
         `;
         resultList.appendChild(li);
+      });
+
+      // Add event listeners to 'Like'/'Unlike' buttons
+      document.querySelectorAll('.like-btn').forEach(button => {
+        button.addEventListener('click', function() {
+          const paperId = this.dataset.paperId;
+          const action = this.textContent.toLowerCase();
+
+          fetch(`/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paper_id: paperId })
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              // Update button text
+              this.textContent = action === 'like' ? 'Unlike' : 'Like';
+            } else {
+              alert(`Error: ${data.error}`);
+            }
+          })
+          .catch(error => console.error('Error:', error));
+        });
       });
     }
   };
@@ -59,8 +96,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     fetch(`/search?keywords=${encodeURIComponent(keywords.join(","))}`)
-      .then((response) => response.json())
-      .then((data) => renderSearchResults(data))
+      .then((response) => {
+        if (response.status === 401) {
+          // Not authenticated, redirect to login page
+          window.location.href = 'login.html';
+          return;
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (data) {
+          renderSearchResults(data);
+        }
+      })
       .catch((error) => {
         console.error("Error fetching search results:", error);
         resultList.innerHTML = "<li>Failed to fetch search results.</li>";

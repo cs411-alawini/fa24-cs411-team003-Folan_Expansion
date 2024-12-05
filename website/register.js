@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
   const registerForm = document.getElementById('register-form');
 
@@ -7,6 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const username = document.getElementById('username').value;
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
+
+    // Check if email is a Gmail address
+    if (!email.endsWith('@gmail.com')) {
+      alert('Please use a Gmail address.');
+      return;
+    }
 
     fetch('/register', {
       method: 'POST',

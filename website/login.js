@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('login-form');
 
@@ -15,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        // Redirect to the main application page
+        // Redirect to the main page
         window.location.href = 'frontend.html';
       } else {
         alert('Login failed: ' + data.error);

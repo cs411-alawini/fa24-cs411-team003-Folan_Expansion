@@ -1,9 +1,10 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for
 import mysql.connector
 from flask_cors import CORS
 from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Replace with a secure key
 CORS(app)  # Enable CORS for front-end to communicate with back-end
 
 # Database connection
@@ -62,6 +63,9 @@ def serve_static_files(filename):
 # Search endpoint
 @app.route('/search', methods=['GET'])
 def search_papers():
+    if 'user_id' not in session:
+        return jsonify({"error": "Authentication required"}), 401
+
     keywords = request.args.get('keywords')
     if not keywords:
         return jsonify({"error": "Need at least one keyword"}), 400
@@ -96,6 +100,7 @@ def search_papers():
                 {where_clause}
         )
         SELECT
+            km.paper_id,  -- Include paper_id in the results
             km.title,
             km.abstract,
             km.citation_num,
@@ -113,12 +118,30 @@ def search_papers():
     try:
         cursor.execute(query)
         results = cursor.fetchall()
+
+        # Get list of paper_ids from the results
+        paper_ids = [row['paper_id'] for row in results]
+
+        # Fetch liked papers for the user
+        if paper_ids:
+            format_strings = ','.join(['%s'] * len(paper_ids))
+            cursor.execute(f"""
+                SELECT paper_id FROM Likes WHERE user_id = %s AND paper_id IN ({format_strings})
+            """, [session['user_id']] + paper_ids)
+            liked_papers = cursor.fetchall()
+            liked_paper_ids = set([row['paper_id'] for row in liked_papers])
+        else:
+            liked_paper_ids = set()
+
+        # Add 'liked' flag to each result
+        for row in results:
+            row['liked'] = row['paper_id'] in liked_paper_ids
+
+        return jsonify(results)
     except mysql.connector.Error as err:
         return jsonify({"error": "Database query failed", "details": str(err)}), 500
     finally:
         cursor.close()
-
-    return jsonify(results)
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -139,6 +162,7 @@ def login():
             stored_password = user['password']
             # If passwords are stored in plain text (not recommended)
             if stored_password == password:
+                session['user_id'] = user['user_id']  # Store user ID in session
                 return jsonify({"success": True}), 200
             else:
                 return jsonify({"success": False, "error": "Invalid credentials"}), 401
@@ -149,6 +173,12 @@ def login():
     finally:
         cursor.close()
 
+# Add a logout route
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    return redirect(url_for('serve_static_files', filename='login.html'))
+
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -158,6 +188,10 @@ def register():
 
     if not username or not email or not password:
         return jsonify({"success": False, "error": "All fields are required"}), 400
+
+    # Validate that the email is a Gmail address
+    if not email.endswith('@gmail.com'):
+        return jsonify({"success": False, "error": "Email must be a Gmail address"}), 400
 
     cursor = db.cursor()
     try:
@@ -178,6 +212,78 @@ def register():
 
     except mysql.connector.Error as err:
         return jsonify({"success": False, "error": "Database error", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
+@app.route('/is_authenticated')
+def is_authenticated():
+    return jsonify({'authenticated': 'user_id' in session}), 200
+
+@app.route('/like', methods=['POST'])
+def like_paper():
+    if 'user_id' not in session:
+        return jsonify({"error": "Authentication required"}), 401
+
+    data = request.get_json()
+    paper_id = data.get('paper_id')
+
+    if not paper_id:
+        return jsonify({"error": "Paper ID is required"}), 400
+
+    cursor = db.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO Likes (user_id, paper_id, time_liked)
+            VALUES (%s, %s, NOW())
+        """, (session['user_id'], paper_id))
+        db.commit()
+        return jsonify({"success": True}), 200
+    except mysql.connector.Error as err:
+        return jsonify({"error": "Database error", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
+@app.route('/unlike', methods=['POST'])
+def unlike_paper():
+    if 'user_id' not in session:
+        return jsonify({"error": "Authentication required"}), 401
+
+    data = request.get_json()
+    paper_id = data.get('paper_id')
+
+    if not paper_id:
+        return jsonify({"error": "Paper ID is required"}), 400
+
+    cursor = db.cursor()
+    try:
+        cursor.execute("""
+            DELETE FROM Likes WHERE user_id = %s AND paper_id = %s
+        """, (session['user_id'], paper_id))
+        db.commit()
+        return jsonify({"success": True}), 200
+    except mysql.connector.Error as err:
+        return jsonify({"error": "Database error", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
+@app.route('/liked-papers', methods=['GET'])
+def get_liked_papers():
+    if 'user_id' not in session:
+        return jsonify({"error": "Authentication required"}), 401
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT p.paper_id, p.title, p.abstract, p.citation_num
+            FROM Papers p
+            JOIN Likes l ON p.paper_id = l.paper_id
+            WHERE l.user_id = %s
+            ORDER BY l.time_liked DESC
+        """, (session['user_id'],))
+        papers = cursor.fetchall()
+        return jsonify(papers), 200
+    except mysql.connector.Error as err:
+        return jsonify({"error": "Database error", "details": str(err)}), 500
     finally:
         cursor.close()
 

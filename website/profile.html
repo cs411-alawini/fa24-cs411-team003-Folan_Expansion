@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile - FindMyPaper</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Your Liked Papers</h1>
+      <nav>
+        <a href="frontend.html">Home</a> | <a href="logout">Logout</a>
+      </nav>
+    </header>
+    <section id="likedPapersSection">
+      <ul id="likedPapersList"></ul>
+    </section>
+  </div>
+  <script>
+    // Redirect unauthenticated users to the login page
+    fetch('/is_authenticated')
+      .then(response => response.json())
+      .then(data => {
+        if (!data.authenticated) {
+          window.location.href = 'login.html';
+        } else {
+          // Fetch liked papers
+          fetch('/liked-papers')
+            .then(response => response.json())
+            .then(papers => {
+              renderLikedPapers(papers);
+            })
+            .catch(error => console.error('Error fetching liked papers:', error));
+        }
+      })
+      .catch(error => {
+        console.error('Error checking authentication:', error);
+        window.location.href = 'login.html';
+      });
+
+    function renderLikedPapers(papers) {
+      const list = document.getElementById('likedPapersList');
+      if (papers.length === 0) {
+        list.innerHTML = "<li>You have not liked any papers yet.</li>";
+      } else {
+        papers.forEach(paper => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <strong>${paper.title}</strong>
+            <p>${paper.abstract}</p>
+            <p><em>Citations:</em> ${paper.citation_num}</p>
+            <button class="unlike-btn" data-paper-id="${paper.paper_id}">Unlike</button>
+          `;
+          list.appendChild(li);
+        });
+
+        // Add event listeners to 'Unlike' buttons
+        document.querySelectorAll('.unlike-btn').forEach(button => {
+          button.addEventListener('click', function() {
+            const paperId = this.dataset.paperId;
+            fetch('/unlike', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paper_id: paperId })
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                // Remove the paper from the list
+                this.parentElement.remove();
+              } else {
+                alert(`Error: ${data.error}`);
+              }
+            })
+            .catch(error => console.error('Error:', error));
+          });
+        });
+      }
+    }
+  </script>
+</body>
+</html>

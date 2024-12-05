@@ -12,7 +12,7 @@
       <h1>📚 FindMyPaper</h1>
       <p>Search and explore the top economic research papers</p>
       <nav>
-        <a href="login.html">Login</a> | <a href="register.html">Register</a>
+        <a href="profile.html">Profile</a> | <a href="/logout">Logout</a>
       </nav>
     </header>
 
@@ -48,6 +48,19 @@
   </div>
   <script src="app.js"></script>
   <script>
+    // Redirect unauthenticated users to the login page
+    fetch('/is_authenticated')
+      .then(response => response.json())
+      .then(data => {
+        if (!data.authenticated) {
+          window.location.href = 'login.html';
+        }
+      })
+      .catch(error => {
+        console.error('Error checking authentication:', error);
+        window.location.href = 'login.html';
+      });
+
     // ...existing code...
     document.getElementById('login-form').addEventListener('submit', function(event) {
       event.preventDefault();
