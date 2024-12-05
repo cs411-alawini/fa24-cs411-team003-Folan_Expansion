@@ -11,6 +11,9 @@
     <header>
       <h1>📚 FindMyPaper</h1>
       <p>Search and explore the top economic research papers</p>
+      <nav>
+        <a href="login.html">Login</a> | <a href="register.html">Register</a>
+      </nav>
     </header>
 
     <!-- Search Section -->
@@ -44,5 +47,30 @@
     </section>
   </div>
   <script src="app.js"></script>
+  <script>
+    // ...existing code...
+    document.getElementById('login-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const usernameOrEmail = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username_or_email: usernameOrEmail, password: password })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Login successful');
+          // ...additional code on successful login...
+        } else {
+          alert('Login failed: ' + data.error);
+        }
+      })
+      .catch(error => console.error('Error:', error));
+    });
+    // ...existing code...
+  </script>
 </body>
 </html>

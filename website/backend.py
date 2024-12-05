@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import mysql.connector
 from flask_cors import CORS
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for front-end to communicate with back-end
@@ -119,8 +120,66 @@ def search_papers():
 
     return jsonify(results)
 
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username_or_email = data.get('username_or_email')
+    password = data.get('password')
 
+    if not username_or_email or not password:
+        return jsonify({"success": False, "error": "Username and password are required"}), 400
 
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT * FROM `User` WHERE username = %s OR email = %s
+        """, (username_or_email, username_or_email))
+        user = cursor.fetchone()
+        if user:
+            stored_password = user['password']
+            # If passwords are stored in plain text (not recommended)
+            if stored_password == password:
+                return jsonify({"success": True}), 200
+            else:
+                return jsonify({"success": False, "error": "Invalid credentials"}), 401
+        else:
+            return jsonify({"success": False, "error": "User not found"}), 404
+    except mysql.connector.Error as err:
+        return jsonify({"success": False, "error": "Database query failed", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not username or not email or not password:
+        return jsonify({"success": False, "error": "All fields are required"}), 400
+
+    cursor = db.cursor()
+    try:
+        # Check if username or email already exists
+        cursor.execute("""
+            SELECT * FROM User WHERE username = %s OR email = %s
+        """, (username, email))
+        if cursor.fetchone():
+            return jsonify({"success": False, "error": "Username or email already exists"}), 409
+
+        # Insert new user
+        cursor.execute("""
+            INSERT INTO User (username, email, password) VALUES (%s, %s, %s)
+        """, (username, email, password))
+        db.commit()
+
+        return jsonify({"success": True}), 201
+
+    except mysql.connector.Error as err:
+        return jsonify({"success": False, "error": "Database error", "details": str(err)}), 500
+    finally:
+        cursor.close()
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
