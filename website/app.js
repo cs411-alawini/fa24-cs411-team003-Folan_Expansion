@@ -70,8 +70,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const li = document.createElement("li");
         li.innerHTML = `
           <strong>${paper.title}</strong>
+          <p>${paper.abstract}</p>
           <p><em>Citations:</em> ${paper.citation_num}</p>
-          <p><em>Composite Score:</em> ${paper.composite_score}</p>
+          <p><em>Likes:</em> ${paper.like_count}</p>
+          <p><em>Ranking:</em> ${paper.ranking}</p>
         `;
         container.appendChild(li);
       });

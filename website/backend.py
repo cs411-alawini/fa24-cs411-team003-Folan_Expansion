@@ -287,6 +287,67 @@ def get_liked_papers():
     finally:
         cursor.close()
 
+@app.route('/top-papers-day', methods=['GET'])
+def top_papers_day():
+    cursor = db.cursor(dictionary=True)
+    try:
+        query = """
+            SELECT
+                p.paper_id,
+                p.title,
+                p.abstract,
+                p.citation_num,
+                COUNT(li.paper_id) AS like_count,
+                ROW_NUMBER() OVER (ORDER BY COUNT(li.paper_id) DESC) AS ranking
+            FROM
+                Papers p
+            JOIN Likes li ON p.paper_id = li.paper_id
+            JOIN Leaderboards l ON l.leaderboard_id = 1
+            WHERE
+                li.time_liked BETWEEN DATE_SUB(l.ranking_date, INTERVAL l.time_period_days DAY) AND l.ranking_date
+            GROUP BY
+                p.paper_id, l.leaderboard_id
+            ORDER BY
+                like_count DESC
+            LIMIT 10;
+        """
+        cursor.execute(query)
+        results = cursor.fetchall()
+        return jsonify(results), 200
+    except mysql.connector.Error as err:
+        return jsonify({"error": "Database error", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
+@app.route('/top-papers-all-time', methods=['GET'])
+def top_papers_all_time():
+    cursor = db.cursor(dictionary=True)
+    try:
+        query = """
+            SELECT
+                p.paper_id,
+                p.title,
+                p.abstract,
+                p.citation_num,
+                COUNT(li.paper_id) AS like_count,
+                ROW_NUMBER() OVER (ORDER BY COUNT(li.paper_id) DESC) AS ranking
+            FROM
+                Papers p
+            JOIN Likes li ON p.paper_id = li.paper_id
+            GROUP BY
+                p.paper_id
+            ORDER BY
+                like_count DESC
+            LIMIT 10;
+        """
+        cursor.execute(query)
+        results = cursor.fetchall()
+        return jsonify(results), 200
+    except mysql.connector.Error as err:
+        return jsonify({"error": "Database error", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
 
