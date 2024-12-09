@@ -2,18 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchBtn = document.getElementById("searchBtn");
   const searchQuery = document.getElementById("searchQuery");
   const resultList = document.getElementById("resultList");
-  // const topPapersDay = document.getElementById("topPapersDay");
-  // const topPapersAllTime = document.getElementById("topPapersAllTime");
-
-  // Update navigation menu
-  /*
-  const header = document.querySelector('header');
-  header.innerHTML += `
-    <nav>
-      <a href="profile.html">Profile</a> | <a href="/logout">Logout</a>
-    </nav>
-  `;
-  */
+  const mostLikedBtn = document.getElementById("mostLikedBtn"); // Add a button for most-liked papers
+  const mostLikedList = document.getElementById("mostLikedList"); // Add a container for most-liked papers
 
   const renderSearchResults = (results) => {
     resultList.innerHTML = "";
@@ -35,30 +25,49 @@ document.addEventListener("DOMContentLoaded", () => {
         resultList.appendChild(li);
       });
 
-      // Add event listeners to 'Like'/'Unlike' buttons
-      document.querySelectorAll('.like-btn').forEach(button => {
-        button.addEventListener('click', function() {
-          const paperId = this.dataset.paperId;
-          const action = this.textContent.trim().toLowerCase(); // Trim action text
+      attachLikeButtonListeners();
+    }
+  };
 
-          fetch(`/${action}`, { // Ensure no leading spaces
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paper_id: paperId })
-          })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              // Update button text
-              this.textContent = action === 'like' ? 'Unlike' : 'Like';
-            } else {
-              alert(`Error: ${data.error}`);
-            }
-          })
-          .catch(error => console.error('Error:', error));
-        });
+  const renderMostLikedPapers = (results) => {
+    mostLikedList.innerHTML = "";
+    if (results.length === 0) {
+      mostLikedList.innerHTML = "<li>No results found.</li>";
+    } else {
+      results.forEach((result) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${result.title}</strong> 
+          <p><em>Total Likes:</em> ${result.total_likes}</p>
+        `;
+        mostLikedList.appendChild(li);
       });
     }
+  };
+
+  const attachLikeButtonListeners = () => {
+    document.querySelectorAll('.like-btn').forEach(button => {
+      button.addEventListener('click', function() {
+        const paperId = this.dataset.paperId;
+        const action = this.textContent.toLowerCase();
+
+        fetch(`/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paper_id: paperId })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Update button text
+            this.textContent = action === 'like' ? 'Unlike' : 'Like';
+          } else {
+            alert(`Error: ${data.error}`);
+          }
+        })
+        .catch(error => console.error('Error:', error));
+      });
+    });
   };
 
   searchBtn.addEventListener("click", () => {
@@ -98,5 +107,24 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   });
 
-  // Remove fetchLeaderboards and its invocation
-  /*  const fetchLeaderboards = () => {    fetch("/top-papers-day")      .then((response) => response.json())      .then((data) => renderLeaderboards(data, topPapersDay))      .catch((error) => {        console.error("Error fetching top papers of the day:", error);        topPapersDay.innerHTML = "<li>Failed to fetch top papers of the day.</li>";      });    fetch("/top-papers-all-time")      .then((response) => response.json())      .then((data) => renderLeaderboards(data, topPapersAllTime))      .catch((error) => {        console.error("Error fetching top papers of all time:", error);        topPapersAllTime.innerHTML = "<li>Failed to fetch top papers of all time.</li>";      });  };  fetchLeaderboards();  */});
+  mostLikedBtn.addEventListener("click", () => {
+    fetch(`/most-liked-paper`)
+      .then((response) => {
+        if (response.status === 401) {
+          // Not authenticated, redirect to login page
+          window.location.href = 'login.html';
+          return;
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (data) {
+          renderMostLikedPapers(data);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching most-liked papers:", error);
+        mostLikedList.innerHTML = "<li>Failed to fetch most-liked papers.</li>";
+      });
+  });
+});

@@ -350,10 +350,47 @@ def get_liked_papers():
     finally:
         cursor.close()
 
+@app.route('/most-liked-paper', methods=['GET'])
+def most_liked_papers():
+    if 'user_id' not in session:
+        return jsonify({"error": "Authentication required"}), 401
+
+    user_id = session['user_id']
+
+    cursor = None
+    try:
+        cursor = db.cursor(dictionary=True)
+        query = """
+            SELECT
+                p.paper_id,
+                p.title,
+                COUNT(l_all.user_id) AS total_likes
+            FROM
+                Papers p
+            JOIN
+                Likes l ON l.paper_id = p.paper_id
+            JOIN
+                Likes l_all ON p.paper_id = l_all.paper_id
+            WHERE
+                l.user_id = %s
+                AND l.time_liked >= NOW() - INTERVAL 30 DAY
+            GROUP BY
+                p.paper_id, p.title
+            ORDER BY
+                total_likes DESC
+            LIMIT 15;
+        """
+        cursor.execute(query, (user_id,))
+        results = cursor.fetchall()
+        if not results:
+            return jsonify({"message": "No results found"}), 404
+        return jsonify(results), 200
+    except mysql.connector.Error as err:
+        return jsonify({"error": "Database error", "details": str(err)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+
 if __name__ == '__main__':
+
     app.run(host='127.0.0.1', port=8080, debug=True)
-
-
-
-
-# TSET
