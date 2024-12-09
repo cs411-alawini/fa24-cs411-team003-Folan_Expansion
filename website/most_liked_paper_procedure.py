@@ -4,10 +4,18 @@ def initialize_most_liked_papers_procedure():
         # Drop existing procedure if it exists
         cursor.execute("DROP PROCEDURE IF EXISTS GetMostLikedPapers")
         
-        # Create new procedure
+        # Create new procedure with transaction handling
         cursor.execute("""
             CREATE PROCEDURE GetMostLikedPapers(IN user_id INT)
             BEGIN
+                DECLARE EXIT HANDLER FOR SQLEXCEPTION
+                BEGIN
+                    ROLLBACK;
+                    RESIGNAL;
+                END;
+
+                START TRANSACTION;
+                
                 SELECT
                     p.paper_id,
                     p.title,
@@ -26,10 +34,13 @@ def initialize_most_liked_papers_procedure():
                 ORDER BY
                     total_likes DESC
                 LIMIT 15;
+                
+                COMMIT;
             END
         """)
         
         print("Most liked papers procedure initialized successfully")
+        db.commit()
         
     except mysql.connector.Error as err:
         print(f"Error initializing most liked papers procedure: {err}")
