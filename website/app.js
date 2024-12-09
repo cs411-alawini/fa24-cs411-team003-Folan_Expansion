@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll('.like-btn').forEach(button => {
         button.addEventListener('click', function() {
           const paperId = this.dataset.paperId;
-          const action = this.textContent.toLowerCase();
+          const action = this.textContent.toLowerCase().trim();
 
           fetch(`/${action}`, {
             method: 'POST',

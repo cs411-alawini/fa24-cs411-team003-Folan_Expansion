@@ -126,7 +126,7 @@ def search_papers():
         if paper_ids:
             format_strings = ','.join(['%s'] * len(paper_ids))
             cursor.execute(f"""
-                SELECT paper_id FROM Likes WHERE user_id = %s AND paper_id IN ({format_strings})
+                SELECT paper_id FROM `Likes` WHERE user_id = %s AND paper_id IN ({format_strings})
             """, [session['user_id']] + paper_ids)
             liked_papers = cursor.fetchall()
             liked_paper_ids = set([row['paper_id'] for row in liked_papers])
@@ -233,7 +233,7 @@ def like_paper():
     cursor = db.cursor()
     try:
         cursor.execute("""
-            INSERT INTO Likes (user_id, paper_id, time_liked)
+            INSERT INTO `Likes` (user_id, paper_id, time_liked)
             VALUES (%s, %s, NOW())
         """, (session['user_id'], paper_id))
         db.commit()
@@ -257,7 +257,7 @@ def unlike_paper():
     cursor = db.cursor()
     try:
         cursor.execute("""
-            DELETE FROM Likes WHERE user_id = %s AND paper_id = %s
+            DELETE FROM `Likes` WHERE user_id = %s AND paper_id = %s
         """, (session['user_id'], paper_id))
         db.commit()
         return jsonify({"success": True}), 200
@@ -276,7 +276,7 @@ def get_liked_papers():
         cursor.execute("""
             SELECT p.paper_id, p.title, p.abstract, p.citation_num
             FROM Papers p
-            JOIN Likes l ON p.paper_id = l.paper_id
+            JOIN `Likes` l ON p.paper_id = l.paper_id
             WHERE l.user_id = %s
             ORDER BY l.time_liked DESC
         """, (session['user_id'],))
