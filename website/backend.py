@@ -25,42 +25,6 @@ def serve_frontend():
 def serve_static_files(filename):
     return send_from_directory('.', filename)
 
-# Leaderboard endpoint
-# @app.route('/leaderboard', methods=['GET'])
-# def leaderboard():
-#     # Reconnect if the connection is not active
-#     if not db.is_connected():
-#         try:
-#             db.reconnect()
-#             print("Reconnected to the database.")
-#         except mysql.connector.Error as err:
-#             return jsonify({"error": "Unable to reconnect to the database", "details": str(err)}), 500
-
-#     period = request.args.get('period')
-#     cursor = db.cursor(dictionary=True)
-#     if period == "day":
-#         cursor.execute("""
-#             SELECT Papers.title, AppearsIn.ranking
-#             FROM Papers
-#             JOIN AppearsIn ON Papers.paper_id = AppearsIn.paper_id
-#             WHERE leaderboard_id IN (
-#                 SELECT leaderboard_id FROM Leaderboards WHERE time_period_days = 1
-#             )
-#         """)
-#     else:
-#         cursor.execute("""
-#             SELECT Papers.title, AppearsIn.ranking
-#             FROM Papers
-#             JOIN AppearsIn ON Papers.paper_id = AppearsIn.paper_id
-#             WHERE leaderboard_id IN (
-#                 SELECT leaderboard_id FROM Leaderboards WHERE time_period_days > 1
-#             )
-#         """)
-#     results = cursor.fetchall()
-#     cursor.close()
-#     return jsonify(results)
-
-# Search endpoint
 @app.route('/search', methods=['GET'])
 def search_papers():
     if 'user_id' not in session:
@@ -77,47 +41,20 @@ def search_papers():
     if len(keywords_list) > 3:
         return jsonify({"error": "At most three keywords allowed"}), 400
 
-    # Construct the dynamic SQL query
-    keyword_conditions = []
-    for kw in keywords_list:
-        keyword_conditions.append(f"(p.title LIKE '%{kw}%' OR p.abstract LIKE '%{kw}%')")
-
-    where_clause = " OR ".join(keyword_conditions)
-
-    query = f"""
-        WITH KeywordMatches AS (
-            SELECT
-                p.*,
-                (
-                    { " + ".join([f"CASE WHEN p.title LIKE '%{kw}%' THEN 2 ELSE 0 END + CASE WHEN p.abstract LIKE '%{kw}%' THEN 1 ELSE 0 END" for kw in keywords_list]) }
-                ) AS relevance_score,
-                (
-                    { " + ".join([f"CASE WHEN p.title LIKE '%{kw}%' OR p.abstract LIKE '%{kw}%' THEN 1 ELSE 0 END" for kw in keywords_list]) }
-                ) AS keywords_matched_count
-            FROM
-                Papers p
-            WHERE
-                {where_clause}
-        )
-        SELECT
-            km.paper_id,  -- Include paper_id in the results
-            km.title,
-            km.abstract,
-            km.citation_num,
-            km.relevance_score,
-            (0.7 * km.relevance_score) + (0.3 * km.citation_num) AS composite_score
-        FROM
-            KeywordMatches km
-        ORDER BY
-            (CASE WHEN km.keywords_matched_count = {len(keywords_list)} THEN 1 ELSE 0 END) DESC,
-            composite_score DESC
-        LIMIT 15;
-    """
+    # Pad the keywords list to always have 3 elements
+    while len(keywords_list) < 3:
+        keywords_list.append(None)
 
     cursor = db.cursor(dictionary=True)
     try:
-        cursor.execute(query)
-        results = cursor.fetchall()
+        cursor.callproc('search_papers', 
+                       [keywords_list[0], keywords_list[1], keywords_list[2], session['user_id']])
+        
+        # Stored procedures with SELECT return results that need to be fetched
+        for result in cursor.stored_results():
+            results = result.fetchall()
+            return jsonify(results)
+
 
         # Get list of paper_ids from the results
         paper_ids = [row['paper_id'] for row in results]
@@ -264,48 +201,6 @@ def like_paper():
     finally:
         cursor.close()
 
-# Remove the following routes related to top papers
-
-# @app.route('/top-papers-day', methods=['GET'])
-# def top_papers_day():
-#     cursor = db.cursor(dictionary=True)
-#     try:
-#         cursor.execute("""
-#             SELECT p.paper_id, p.title, p.abstract, p.citation_num, 
-#                    (0.7 * p.relevance_score + 0.3 * p.citation_num) AS composite_score
-#             FROM Papers p
-#             JOIN Leaderboards l ON p.paper_id = l.paper_id
-#             WHERE l.time_period_days = 1
-#             ORDER BY composite_score DESC
-#             LIMIT 10;
-#         """)
-#         papers = cursor.fetchall()
-#         return jsonify(papers), 200
-#     except mysql.connector.Error as err:
-#         return jsonify({"error": "Database error", "details": str(err)}), 500
-#     finally:
-#         cursor.close()
-
-# @app.route('/top-papers-all-time', methods=['GET'])
-# def top_papers_all_time():
-#     cursor = db.cursor(dictionary=True)
-#     try:
-#         cursor.execute("""
-#             SELECT p.paper_id, p.title, p.abstract, p.citation_num, 
-#                    (0.7 * p.relevance_score + 0.3 * p.citation_num) AS composite_score
-#             FROM Papers p
-#             JOIN Leaderboards l ON p.paper_id = l.paper_id
-#             WHERE l.time_period_days > 1
-#             ORDER BY composite_score DESC
-#             LIMIT 10;
-#         """)
-#         papers = cursor.fetchall()
-#         return jsonify(papers), 200
-#     except mysql.connector.Error as err:
-#         return jsonify({"error": "Database error", "details": str(err)}), 500
-#     finally:
-#         cursor.close()
-
 @app.route('/unlike', methods=['POST'])
 def unlike_paper():
     if 'user_id' not in session:
@@ -349,6 +244,7 @@ def get_liked_papers():
         return jsonify({"error": "Database error", "details": str(err)}), 500
     finally:
         cursor.close()
+
 
 # Paper Recommendation
 @app.route('/recommend', methods=['GET'])
@@ -398,3 +294,4 @@ def recommend_papers():
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
+
