@@ -60,6 +60,7 @@ def serve_static_files(filename):
 #     cursor.close()
 #     return jsonify(results)
 
+# Search endpoint
 @app.route('/search', methods=['GET'])
 def search_papers():
     if 'user_id' not in session:
@@ -69,75 +70,75 @@ def search_papers():
     if not keywords:
         return jsonify({"error": "Need at least one keyword"}), 400
 
+    # Split keywords and clean up
     keywords_list = [kw.strip() for kw in keywords.split(',') if kw.strip()]
     if len(keywords_list) < 1:
         return jsonify({"error": "Need at least one keyword"}), 400
     if len(keywords_list) > 3:
         return jsonify({"error": "At most three keywords allowed"}), 400
 
+    # Construct the dynamic SQL query
+    keyword_conditions = []
+    for kw in keywords_list:
+        keyword_conditions.append(f"(p.title LIKE '%{kw}%' OR p.abstract LIKE '%{kw}%')")
+
+    where_clause = " OR ".join(keyword_conditions)
+
+    query = f"""
+        WITH KeywordMatches AS (
+            SELECT
+                p.*,
+                (
+                    { " + ".join([f"CASE WHEN p.title LIKE '%{kw}%' THEN 2 ELSE 0 END + CASE WHEN p.abstract LIKE '%{kw}%' THEN 1 ELSE 0 END" for kw in keywords_list]) }
+                ) AS relevance_score,
+                (
+                    { " + ".join([f"CASE WHEN p.title LIKE '%{kw}%' OR p.abstract LIKE '%{kw}%' THEN 1 ELSE 0 END" for kw in keywords_list]) }
+                ) AS keywords_matched_count
+            FROM
+                Papers p
+            WHERE
+                {where_clause}
+        )
+        SELECT
+            km.paper_id,  -- Include paper_id in the results
+            km.title,
+            km.abstract,
+            km.citation_num,
+            km.relevance_score,
+            (0.7 * km.relevance_score) + (0.3 * km.citation_num) AS composite_score
+        FROM
+            KeywordMatches km
+        ORDER BY
+            (CASE WHEN km.keywords_matched_count = {len(keywords_list)} THEN 1 ELSE 0 END) DESC,
+            composite_score DESC
+        LIMIT 15;
+    """
+
     cursor = db.cursor(dictionary=True)
     try:
-        # Set transaction isolation level
-        cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-        cursor.execute("START TRANSACTION")
-
-        # First advanced query - Search with scoring
-        search_query = f"""
-            WITH KeywordMatches AS (
-                SELECT 
-                    p.*,
-                    (
-                        { " + ".join([f"CASE WHEN p.title LIKE '%{kw}%' THEN 2 ELSE 0 END + CASE WHEN p.abstract LIKE '%{kw}%' THEN 1 ELSE 0 END" for kw in keywords_list]) }
-                    ) AS relevance_score,
-                    (
-                        { " + ".join([f"CASE WHEN p.title LIKE '%{kw}%' OR p.abstract LIKE '%{kw}%' THEN 1 ELSE 0 END" for kw in keywords_list]) }
-                    ) AS keywords_matched_count
-                FROM Papers p
-                WHERE { " OR ".join([f"(p.title LIKE '%{kw}%' OR p.abstract LIKE '%{kw}%')" for kw in keywords_list]) }
-            )
-            SELECT 
-                km.*,
-                (0.7 * km.relevance_score) + (0.3 * km.citation_num) AS composite_score
-            FROM KeywordMatches km
-            ORDER BY
-                keywords_matched_count DESC,
-                composite_score DESC
-            LIMIT 15
-        """
-        cursor.execute(search_query)
+        cursor.execute(query)
         results = cursor.fetchall()
-        
-        # Second advanced query - Get user interaction stats with papers
-        if results:
-            paper_ids = [str(row['paper_id']) for row in results]
-            stats_query = f"""
-                SELECT 
-                    p.paper_id,
-                    COUNT(DISTINCT l.user_id) as like_count,
-                    AVG(CASE WHEN l.user_id IS NOT NULL THEN 1 ELSE 0 END) as engagement_rate,
-                    EXISTS(SELECT 1 FROM Likes WHERE user_id = %s AND paper_id = p.paper_id) as user_liked
-                FROM Papers p
-                LEFT JOIN Likes l ON p.paper_id = l.paper_id
-                WHERE p.paper_id IN ({','.join(paper_ids)})
-                GROUP BY p.paper_id
-            """
-            cursor.execute(stats_query, (session['user_id'],))
-            paper_stats = {row['paper_id']: row for row in cursor.fetchall()}
-            
-            # Merge results
-            for paper in results:
-                stats = paper_stats.get(paper['paper_id'], {})
-                paper.update({
-                    'like_count': stats.get('like_count', 0),
-                    'engagement_rate': float(stats.get('engagement_rate', 0)),
-                    'liked': stats.get('user_liked', False)
-                })
 
-        cursor.execute("COMMIT")
+        # Get list of paper_ids from the results
+        paper_ids = [row['paper_id'] for row in results]
+
+        # Fetch liked papers for the user
+        if paper_ids:
+            format_strings = ','.join(['%s'] * len(paper_ids))
+            cursor.execute(f"""
+                SELECT paper_id FROM Likes WHERE user_id = %s AND paper_id IN ({format_strings})
+            """, [session['user_id']] + paper_ids)
+            liked_papers = cursor.fetchall()
+            liked_paper_ids = set([row['paper_id'] for row in liked_papers])
+        else:
+            liked_paper_ids = set()
+
+        # Add 'liked' flag to each result
+        for row in results:
+            row['liked'] = row['paper_id'] in liked_paper_ids
+
         return jsonify(results)
-
     except mysql.connector.Error as err:
-        cursor.execute("ROLLBACK")
         return jsonify({"error": "Database query failed", "details": str(err)}), 500
     finally:
         cursor.close()
@@ -349,10 +350,51 @@ def get_liked_papers():
     finally:
         cursor.close()
 
+# Paper Recommendation
+@app.route('/recommend', methods=['GET'])
+def recommend_papers():
+    if 'user_id' not in session:
+        print("Session missing user_id.")
+        return jsonify({"error": "Authentication required"}), 401
+
+    user_id = session.get('user_id')
+
+    print(f"Retrieved user_id from session: {user_id}")
+
+    if not user_id:
+        print("No user_id in session.")
+        return jsonify({"error": "User ID not found in session"}), 400
+
+    try:
+        cursor = db.cursor(dictionary=True)
+
+        cursor.execute("SELECT * FROM User WHERE user_id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            print(f"Invalid user_id: {user_id} does not exist in User table.")
+            return jsonify({"error": "Invalid user ID"}), 400
+        else:
+            print(f"Valid user: {user['username']} ({user['email']})")
+
+        cursor.callproc('RecommendPapers', [int(user_id)])
+        results = []
+
+        for result in cursor.stored_results():
+            results.extend(result.fetchall())
+
+        cursor.close()
+
+        if results:
+            print(f"Recommendations retrieved: {len(results)} papers found.")
+            return jsonify(results), 200
+        else:
+            print("No recommendations found.")
+            return jsonify({"message": "No recommendations available"}), 200
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({"error": "Database query failed", "details": str(err)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
-
-
-
-
-# TSET
