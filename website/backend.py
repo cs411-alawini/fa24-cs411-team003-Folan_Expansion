@@ -163,6 +163,7 @@ def login():
             # If passwords are stored in plain text (not recommended)
             if stored_password == password:
                 session['user_id'] = user['user_id']  # Store user ID in session
+                session.permanent = False  # Make session non-permanent
                 return jsonify({"success": True}), 200
             else:
                 return jsonify({"success": False, "error": "Invalid credentials"}), 401
@@ -243,6 +244,48 @@ def like_paper():
     finally:
         cursor.close()
 
+# Remove the following routes related to top papers
+
+# @app.route('/top-papers-day', methods=['GET'])
+# def top_papers_day():
+#     cursor = db.cursor(dictionary=True)
+#     try:
+#         cursor.execute("""
+#             SELECT p.paper_id, p.title, p.abstract, p.citation_num, 
+#                    (0.7 * p.relevance_score + 0.3 * p.citation_num) AS composite_score
+#             FROM Papers p
+#             JOIN Leaderboards l ON p.paper_id = l.paper_id
+#             WHERE l.time_period_days = 1
+#             ORDER BY composite_score DESC
+#             LIMIT 10;
+#         """)
+#         papers = cursor.fetchall()
+#         return jsonify(papers), 200
+#     except mysql.connector.Error as err:
+#         return jsonify({"error": "Database error", "details": str(err)}), 500
+#     finally:
+#         cursor.close()
+
+# @app.route('/top-papers-all-time', methods=['GET'])
+# def top_papers_all_time():
+#     cursor = db.cursor(dictionary=True)
+#     try:
+#         cursor.execute("""
+#             SELECT p.paper_id, p.title, p.abstract, p.citation_num, 
+#                    (0.7 * p.relevance_score + 0.3 * p.citation_num) AS composite_score
+#             FROM Papers p
+#             JOIN Leaderboards l ON p.paper_id = l.paper_id
+#             WHERE l.time_period_days > 1
+#             ORDER BY composite_score DESC
+#             LIMIT 10;
+#         """)
+#         papers = cursor.fetchall()
+#         return jsonify(papers), 200
+#     except mysql.connector.Error as err:
+#         return jsonify({"error": "Database error", "details": str(err)}), 500
+#     finally:
+#         cursor.close()
+
 @app.route('/unlike', methods=['POST'])
 def unlike_paper():
     if 'user_id' not in session:
@@ -279,6 +322,7 @@ def get_liked_papers():
             JOIN Likes l ON p.paper_id = l.paper_id
             WHERE l.user_id = %s
             ORDER BY l.time_liked DESC
+# TSET
         """, (session['user_id'],))
         papers = cursor.fetchall()
         return jsonify(papers), 200

@@ -2,8 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchBtn = document.getElementById("searchBtn");
   const searchQuery = document.getElementById("searchQuery");
   const resultList = document.getElementById("resultList");
-  const topPapersDay = document.getElementById("topPapersDay");
-  const topPapersAllTime = document.getElementById("topPapersAllTime");
+  // const topPapersDay = document.getElementById("topPapersDay");
+  // const topPapersAllTime = document.getElementById("topPapersAllTime");
 
   // Update navigation menu
   /*
@@ -39,9 +39,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll('.like-btn').forEach(button => {
         button.addEventListener('click', function() {
           const paperId = this.dataset.paperId;
-          const action = this.textContent.toLowerCase();
+          const action = this.textContent.trim().toLowerCase(); // Trim action text
 
-          fetch(`/${action}`, {
+          fetch(`/${action}`, { // Ensure no leading spaces
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ paper_id: paperId })
@@ -57,23 +57,6 @@ document.addEventListener("DOMContentLoaded", () => {
           })
           .catch(error => console.error('Error:', error));
         });
-      });
-    }
-  };
-
-  const renderLeaderboards = (papers, container) => {
-    container.innerHTML = "";
-    if (papers.length === 0) {
-      container.innerHTML = "<li>No top papers available.</li>";
-    } else {
-      papers.forEach((paper) => {
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${paper.title}</strong>
-          <p><em>Citations:</em> ${paper.citation_num}</p>
-          <p><em>Composite Score:</em> ${paper.composite_score}</p>
-        `;
-        container.appendChild(li);
       });
     }
   };
@@ -115,23 +98,5 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   });
 
-  const fetchLeaderboards = () => {
-    fetch("/top-papers-day")
-      .then((response) => response.json())
-      .then((data) => renderLeaderboards(data, topPapersDay))
-      .catch((error) => {
-        console.error("Error fetching top papers of the day:", error);
-        topPapersDay.innerHTML = "<li>Failed to fetch top papers of the day.</li>";
-      });
-
-    fetch("/top-papers-all-time")
-      .then((response) => response.json())
-      .then((data) => renderLeaderboards(data, topPapersAllTime))
-      .catch((error) => {
-        console.error("Error fetching top papers of all time:", error);
-        topPapersAllTime.innerHTML = "<li>Failed to fetch top papers of all time.</li>";
-      });
-  };
-
-  fetchLeaderboards();
-});
+  // Remove fetchLeaderboards and its invocation
+  /*  const fetchLeaderboards = () => {    fetch("/top-papers-day")      .then((response) => response.json())      .then((data) => renderLeaderboards(data, topPapersDay))      .catch((error) => {        console.error("Error fetching top papers of the day:", error);        topPapersDay.innerHTML = "<li>Failed to fetch top papers of the day.</li>";      });    fetch("/top-papers-all-time")      .then((response) => response.json())      .then((data) => renderLeaderboards(data, topPapersAllTime))      .catch((error) => {        console.error("Error fetching top papers of all time:", error);        topPapersAllTime.innerHTML = "<li>Failed to fetch top papers of all time.</li>";      });  };  fetchLeaderboards();  */});

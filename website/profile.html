@@ -15,6 +15,9 @@
       </nav>
     </header>
     <section id="likedPapersSection">
+      <h2>User Information</h2>
+      <p id="username">Username: </p>
+      <p id="email">Email: </p>
       <ul id="likedPapersList"></ul>
     </section>
   </div>
@@ -26,6 +29,10 @@
         if (!data.authenticated) {
           window.location.href = 'login.html';
         } else {
+          // Display username and email
+          document.getElementById('username').textContent = `Username: ${data.username}`;
+          document.getElementById('email').textContent = `Email: ${data.email}`;
+          
           // Fetch liked papers
           fetch('/liked-papers')
             .then(response => response.json())
