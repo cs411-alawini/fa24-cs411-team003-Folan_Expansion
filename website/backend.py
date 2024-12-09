@@ -218,7 +218,27 @@ def register():
 
 @app.route('/is_authenticated')
 def is_authenticated():
-    return jsonify({'authenticated': 'user_id' in session}), 200
+    if 'user_id' in session:
+        cursor = db.cursor(dictionary=True)
+        try:
+            cursor.execute("""
+                SELECT username, email FROM User WHERE user_id = %s
+            """, (session['user_id'],))
+            user = cursor.fetchone()
+            if user:
+                return jsonify({
+                    'authenticated': True,
+                    'username': user['username'],
+                    'email': user['email']
+                }), 200
+            else:
+                return jsonify({'authenticated': False}), 200
+        except mysql.connector.Error:
+            return jsonify({'authenticated': False}), 200
+        finally:
+            cursor.close()
+    else:
+        return jsonify({'authenticated': False}), 200
 
 @app.route('/like', methods=['POST'])
 def like_paper():
@@ -322,7 +342,6 @@ def get_liked_papers():
             JOIN Likes l ON p.paper_id = l.paper_id
             WHERE l.user_id = %s
             ORDER BY l.time_liked DESC
-# TSET
         """, (session['user_id'],))
         papers = cursor.fetchall()
         return jsonify(papers), 200
