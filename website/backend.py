@@ -246,6 +246,28 @@ def get_liked_papers():
         cursor.close()
 
 
+
+@app.route('/most-liked-paper', methods=['GET'])
+def most_liked_papers():
+    if 'user_id' not in session:
+        return jsonify({"error": "Authentication required"}), 401
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.callproc('GetMostLikedPapers', [session['user_id']])
+        
+        for result in cursor.stored_results():
+            papers = result.fetchall()
+            if not papers:
+                return jsonify({"message": "No results found"}), 404
+            return jsonify(papers), 200
+            
+    except mysql.connector.Error as err:
+        return jsonify({"error": "Database error", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
+
 # Paper Recommendation
 @app.route('/recommend', methods=['GET'])
 def recommend_papers():
@@ -294,4 +316,3 @@ def recommend_papers():
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)
-

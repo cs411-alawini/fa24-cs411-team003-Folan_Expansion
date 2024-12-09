@@ -2,6 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchBtn = document.getElementById("searchBtn");
   const searchQuery = document.getElementById("searchQuery");
   const resultList = document.getElementById("resultList");
+  const mostLikedBtn = document.getElementById("mostLikedBtn");
+  const mostLikedList = document.getElementById("mostLikedList");
   const recommendBtn = document.getElementById("recommendBtn");
   const recommendList = document.getElementById("recommendList");
 
@@ -25,29 +27,23 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         resultList.appendChild(li);
       });
+      attachLikeButtonListeners();
+    }
+  };
 
-      // Add event listeners to 'Like'/'Unlike' buttons
-      document.querySelectorAll('.like-btn').forEach(button => {
-        button.addEventListener('click', function () {
-          const paperId = this.dataset.paperId;
-          const action = this.textContent.trim().toLowerCase(); // Trim action text
-
-          fetch(`/${action}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paper_id: paperId })
-          })
-            .then(response => response.json())
-            .then(data => {
-              if (data.success) {
-                // Update button text
-                this.textContent = action === 'like' ? 'Unlike' : 'Like';
-              } else {
-                alert(`Error: ${data.error}`);
-              }
-            })
-            .catch(error => console.error('Error:', error));
-        });
+  // Function to render most liked papers
+  const renderMostLikedPapers = (results) => {
+    mostLikedList.innerHTML = "";
+    if (results.length === 0) {
+      mostLikedList.innerHTML = "<li>No results found.</li>";
+    } else {
+      results.forEach((result) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${result.title}</strong> 
+          <p><em>Total Likes:</em> ${result.total_likes}</p>
+        `;
+        mostLikedList.appendChild(li);
       });
     }
   };
@@ -72,32 +68,36 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         recommendList.appendChild(li);
       });
-
-      // Add 'Like' button functionality for recommended papers
-      document.querySelectorAll('.like-btn').forEach((button) => {
-        button.addEventListener('click', function () {
-          const paperId = this.dataset.paperId;
-
-          fetch("/like", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paper_id: paperId })
-          })
-            .then((response) => response.json())
-            .then((data) => {
-              if (data.success) {
-                alert("Paper liked successfully!");
-              } else {
-                alert(`Error: ${data.error}`);
-              }
-            })
-            .catch((error) => console.error("Error liking paper:", error));
-        });
-      });
+      attachLikeButtonListeners();
     }
   };
 
-  // Fetch search results
+  // Attach 'Like' button event listeners
+  const attachLikeButtonListeners = () => {
+    document.querySelectorAll('.like-btn').forEach(button => {
+      button.addEventListener('click', function () {
+        const paperId = this.dataset.paperId;
+        const action = this.textContent.trim().toLowerCase();
+
+        fetch(`/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paper_id: paperId })
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              this.textContent = action === 'like' ? 'Unlike' : 'Like';
+            } else {
+              alert(`Error: ${data.error}`);
+            }
+          })
+          .catch(error => console.error('Error:', error));
+      });
+    });
+  };
+
+  // Event listeners for buttons
   searchBtn.addEventListener("click", () => {
     const query = searchQuery.value.trim();
     if (!query) {
@@ -106,52 +106,53 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const keywords = query.split(",").map((kw) => kw.trim()).filter(Boolean);
-    if (keywords.length < 1) {
-      alert("Need at least one keyword.");
-      return;
-    }
-    if (keywords.length > 3) {
-      alert("At most three keywords allowed.");
+    if (keywords.length < 1 || keywords.length > 3) {
+      alert("Enter 1-3 keywords.");
       return;
     }
 
     fetch(`/search?keywords=${encodeURIComponent(keywords.join(","))}`)
-      .then((response) => {
+      .then(response => {
         if (response.status === 401) {
-          // Not authenticated, redirect to login page
           window.location.href = 'login.html';
           return;
         }
         return response.json();
       })
-      .then((data) => {
-        if (data) {
-          renderSearchResults(data);
-        }
-      })
-      .catch((error) => {
+      .then(data => data && renderSearchResults(data))
+      .catch(error => {
         console.error("Error fetching search results:", error);
         resultList.innerHTML = "<li>Failed to fetch search results.</li>";
       });
   });
 
-  // Fetch recommendations
+  mostLikedBtn.addEventListener("click", () => {
+    fetch(`/most-liked-paper`)
+      .then(response => {
+        if (response.status === 401) {
+          window.location.href = 'login.html';
+          return;
+        }
+        return response.json();
+      })
+      .then(data => data && renderMostLikedPapers(data))
+      .catch(error => {
+        console.error("Error fetching most-liked papers:", error);
+        mostLikedList.innerHTML = "<li>Failed to fetch most-liked papers.</li>";
+      });
+  });
+
   recommendBtn.addEventListener("click", () => {
     fetch("/recommend")
-      .then((response) => {
+      .then(response => {
         if (response.status === 401) {
-          // Redirect unauthenticated users to the login page
           window.location.href = "login.html";
           return;
         }
         return response.json();
       })
-      .then((data) => {
-        if (data) {
-          renderRecommendations(data);
-        }
-      })
-      .catch((error) => {
+      .then(data => data && renderRecommendations(data))
+      .catch(error => {
         console.error("Error fetching recommendations:", error);
         recommendList.innerHTML = "<li>Failed to fetch recommendations.</li>";
       });
