@@ -50,11 +50,9 @@ def search_papers():
         cursor.callproc('search_papers', 
                        [keywords_list[0], keywords_list[1], keywords_list[2], session['user_id']])
         
-        # Stored procedures with SELECT return results that need to be fetched
+        results = []
         for result in cursor.stored_results():
             results = result.fetchall()
-            return jsonify(results)
-
 
         # Get list of paper_ids from the results
         paper_ids = [row['paper_id'] for row in results]

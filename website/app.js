@@ -6,9 +6,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const mostLikedList = document.getElementById("mostLikedList");
   const recommendBtn = document.getElementById("recommendBtn");
   const recommendList = document.getElementById("recommendList");
-  const createLeaderboardBtn = document.getElementById("createLeaderboard"); // Added
-  const leaderboardResults = document.getElementById("leaderboardResults"); // Added
+  const createLeaderboardBtn = document.getElementById("createLeaderboard");
+  const leaderboardResults = document.getElementById("leaderboardResults");
 
+  // Helper function to render a paper item
+  const renderPaper = (paper) => {
+    return `
+      <strong>${paper.title}</strong> 
+      <p>${paper.abstract || ''}</p>
+      ${paper.journal_name ? `<p><em>Journal:</em> ${paper.journal_name}</p>` : ''}
+      <p><em>Citations:</em> ${paper.citation_num || 0}</p>
+      ${paper.relevance_score !== undefined ? `<p><em>Relevance Score:</em> ${paper.relevance_score}</p>` : ''}
+      ${paper.composite_score !== undefined ? `<p><em>Composite Score:</em> ${paper.composite_score}</p>` : ''}
+      <button class="like-btn ${paper.liked ? 'liked' : ''}" data-paper-id="${paper.paper_id}">
+        ${paper.liked ? 'Unlike' : 'Like'}
+      </button>
+    `;
+  };
 
   // Function to render search results
   const renderSearchResults = (results) => {
@@ -18,16 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       results.forEach((result) => {
         const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${result.title}</strong> 
-          <p>${result.abstract}</p>
-          <p><em>Citations:</em> ${result.citation_num}</p>
-          <p><em>Relevance Score:</em> ${result.relevance_score}</p>
-          <p><em>Composite Score:</em> ${result.composite_score}</p>
-          <button class="like-btn" data-paper-id="${result.paper_id}">
-            ${result.liked ? 'Unlike' : 'Like'}
-          </button>
-        `;
+        li.innerHTML = renderPaper(result);
         resultList.appendChild(li);
       });
       attachLikeButtonListeners();
@@ -59,16 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       results.forEach((result) => {
         const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${result.title}</strong>
-          <p>${result.abstract}</p>
-          <p><em>Journal:</em> ${result.journal_name}</p>
-          <p><em>Citations:</em> ${result.citation_num}</p>
-          <p><em>Like Count:</em> ${result.like_count}</p>
-          <button class="like-btn" data-paper-id="${result.paper_id}">
-            Like
-          </button>
-        `;
+        li.innerHTML = renderPaper(result);
         recommendList.appendChild(li);
       });
       attachLikeButtonListeners();
@@ -90,7 +86,14 @@ document.addEventListener("DOMContentLoaded", () => {
           .then(response => response.json())
           .then(data => {
             if (data.success) {
-              this.textContent = action === 'like' ? 'Unlike' : 'Like';
+              // Toggle button text and state
+              if (action === 'like') {
+                this.textContent = 'Unlike';
+                this.classList.add('liked');
+              } else {
+                this.textContent = 'Like';
+                this.classList.remove('liked');
+              }
             } else {
               alert(`Error: ${data.error}`);
             }

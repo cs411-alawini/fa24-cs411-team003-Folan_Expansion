@@ -117,4 +117,22 @@ h2 {
   background-color: #0056b3;
 }
 
+/* Added styles for like/unlike buttons */
+.like-btn {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.like-btn.liked {
+  background-color: #dc3545;
+}
+
+.like-btn:hover {
+  opacity: 0.9;
+}
+
 
