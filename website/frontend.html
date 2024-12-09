@@ -31,13 +31,28 @@
       <ul id="resultList"></ul>
     </section>
 
-    <section id="leaderboardSection">
-      <h2>Create New Leaderboard</h2>
+    <!-- Leaderboard Section -->
+    <section id="leaderboardSection" class="results-section">
+      <h2>🏆 Create New Leaderboard</h2>
       <button id="createLeaderboard">Create Leaderboard</button>
       <div id="leaderboardResults"></div>
     </section>
 
+    <!-- Most Liked Papers -->
+    <section id="mostLikedSection" class="results-section">
+      <h2>❤️ Most Liked Papers</h2>
+      <button id="mostLikedBtn">Show Most Liked Papers</button>
+      <ul id="mostLikedList"></ul>
+    </section>
+
+    <!-- Recommendations -->
+    <section id="recommendationSection" class="results-section">
+      <h2>📑 Recommended Papers</h2>
+      <button id="recommendBtn">Get Recommendations</button>
+      <ul id="recommendList"></ul>
+    </section>
   </div>
+
   <script src="app.js"></script>
   <script>
     // Redirect unauthenticated users to the login page
@@ -53,29 +68,33 @@
         window.location.href = 'login.html';
       });
 
-    // ...existing code...
-    document.getElementById('login-form').addEventListener('submit', function(event) {
-      event.preventDefault();
-      const usernameOrEmail = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
+    // Event listener for login form submission
+    document.addEventListener('DOMContentLoaded', () => {
+      const loginForm = document.getElementById('login-form');
+      if (loginForm) {
+        loginForm.addEventListener('submit', function(event) {
+          event.preventDefault();
+          const usernameOrEmail = document.getElementById('username').value;
+          const password = document.getElementById('password').value;
 
-      fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username_or_email: usernameOrEmail, password: password })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert('Login successful');
-          // ...additional code on successful login...
-        } else {
-          alert('Login failed: ' + data.error);
-        }
-      })
-      .catch(error => console.error('Error:', error));
+          fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username_or_email: usernameOrEmail, password: password })
+          })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                alert('Login successful');
+                window.location.href = '/'; // Redirect to main page
+              } else {
+                alert('Login failed: ' + data.error);
+              }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+      }
     });
-    // ...existing code...
   </script>
 </body>
 </html>
