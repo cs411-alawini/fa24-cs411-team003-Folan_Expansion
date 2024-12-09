@@ -2,9 +2,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchBtn = document.getElementById("searchBtn");
   const searchQuery = document.getElementById("searchQuery");
   const resultList = document.getElementById("resultList");
-  const mostLikedBtn = document.getElementById("mostLikedBtn"); // Add a button for most-liked papers
-  const mostLikedList = document.getElementById("mostLikedList"); // Add a container for most-liked papers
+  const mostLikedBtn = document.getElementById("mostLikedBtn");
+  const mostLikedList = document.getElementById("mostLikedList");
+  const recommendBtn = document.getElementById("recommendBtn");
+  const recommendList = document.getElementById("recommendList");
 
+  // Function to render search results
   const renderSearchResults = (results) => {
     resultList.innerHTML = "";
     if (results.length === 0) {
@@ -24,11 +27,11 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         resultList.appendChild(li);
       });
-
       attachLikeButtonListeners();
     }
   };
 
+  // Function to render most liked papers
   const renderMostLikedPapers = (results) => {
     mostLikedList.innerHTML = "";
     if (results.length === 0) {
@@ -45,31 +48,56 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // Function to render recommendations
+  const renderRecommendations = (results) => {
+    recommendList.innerHTML = "";
+    if (results.length === 0) {
+      recommendList.innerHTML = "<li>No recommendations available.</li>";
+    } else {
+      results.forEach((result) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${result.title}</strong>
+          <p>${result.abstract}</p>
+          <p><em>Journal:</em> ${result.journal_name}</p>
+          <p><em>Citations:</em> ${result.citation_num}</p>
+          <p><em>Like Count:</em> ${result.like_count}</p>
+          <button class="like-btn" data-paper-id="${result.paper_id}">
+            Like
+          </button>
+        `;
+        recommendList.appendChild(li);
+      });
+      attachLikeButtonListeners();
+    }
+  };
+
+  // Attach 'Like' button event listeners
   const attachLikeButtonListeners = () => {
     document.querySelectorAll('.like-btn').forEach(button => {
-      button.addEventListener('click', function() {
+      button.addEventListener('click', function () {
         const paperId = this.dataset.paperId;
-        const action = this.textContent.toLowerCase();
+        const action = this.textContent.trim().toLowerCase();
 
         fetch(`/${action}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ paper_id: paperId })
         })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            // Update button text
-            this.textContent = action === 'like' ? 'Unlike' : 'Like';
-          } else {
-            alert(`Error: ${data.error}`);
-          }
-        })
-        .catch(error => console.error('Error:', error));
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              this.textContent = action === 'like' ? 'Unlike' : 'Like';
+            } else {
+              alert(`Error: ${data.error}`);
+            }
+          })
+          .catch(error => console.error('Error:', error));
       });
     });
   };
 
+  // Event listeners for buttons
   searchBtn.addEventListener("click", () => {
     const query = searchQuery.value.trim();
     if (!query) {
@@ -78,30 +106,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const keywords = query.split(",").map((kw) => kw.trim()).filter(Boolean);
-    if (keywords.length < 1) {
-      alert("Need at least one keyword.");
-      return;
-    }
-    if (keywords.length > 3) {
-      alert("At most three keywords allowed.");
+    if (keywords.length < 1 || keywords.length > 3) {
+      alert("Enter 1-3 keywords.");
       return;
     }
 
     fetch(`/search?keywords=${encodeURIComponent(keywords.join(","))}`)
-      .then((response) => {
+      .then(response => {
         if (response.status === 401) {
-          // Not authenticated, redirect to login page
           window.location.href = 'login.html';
           return;
         }
         return response.json();
       })
-      .then((data) => {
-        if (data) {
-          renderSearchResults(data);
-        }
-      })
-      .catch((error) => {
+      .then(data => data && renderSearchResults(data))
+      .catch(error => {
         console.error("Error fetching search results:", error);
         resultList.innerHTML = "<li>Failed to fetch search results.</li>";
       });
@@ -109,22 +128,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
   mostLikedBtn.addEventListener("click", () => {
     fetch(`/most-liked-paper`)
-      .then((response) => {
+      .then(response => {
         if (response.status === 401) {
-          // Not authenticated, redirect to login page
           window.location.href = 'login.html';
           return;
         }
         return response.json();
       })
-      .then((data) => {
-        if (data) {
-          renderMostLikedPapers(data);
-        }
-      })
-      .catch((error) => {
+      .then(data => data && renderMostLikedPapers(data))
+      .catch(error => {
         console.error("Error fetching most-liked papers:", error);
         mostLikedList.innerHTML = "<li>Failed to fetch most-liked papers.</li>";
+      });
+  });
+
+  recommendBtn.addEventListener("click", () => {
+    fetch("/recommend")
+      .then(response => {
+        if (response.status === 401) {
+          window.location.href = "login.html";
+          return;
+        }
+        return response.json();
+      })
+      .then(data => data && renderRecommendations(data))
+      .catch(error => {
+        console.error("Error fetching recommendations:", error);
+        recommendList.innerHTML = "<li>Failed to fetch recommendations.</li>";
       });
   });
 });
