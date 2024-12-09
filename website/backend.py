@@ -34,6 +34,7 @@ def search_papers():
     if not keywords:
         return jsonify({"error": "Need at least one keyword"}), 400
 
+    # Split keywords and clean up
     keywords_list = [kw.strip() for kw in keywords.split(',') if kw.strip()]
     if len(keywords_list) < 1:
         return jsonify({"error": "Need at least one keyword"}), 400
@@ -54,6 +55,26 @@ def search_papers():
             results = result.fetchall()
             return jsonify(results)
 
+
+        # Get list of paper_ids from the results
+        paper_ids = [row['paper_id'] for row in results]
+
+        # Fetch liked papers for the user
+        if paper_ids:
+            format_strings = ','.join(['%s'] * len(paper_ids))
+            cursor.execute(f"""
+                SELECT paper_id FROM Likes WHERE user_id = %s AND paper_id IN ({format_strings})
+            """, [session['user_id']] + paper_ids)
+            liked_papers = cursor.fetchall()
+            liked_paper_ids = set([row['paper_id'] for row in liked_papers])
+        else:
+            liked_paper_ids = set()
+
+        # Add 'liked' flag to each result
+        for row in results:
+            row['liked'] = row['paper_id'] in liked_paper_ids
+
+        return jsonify(results)
     except mysql.connector.Error as err:
         return jsonify({"error": "Database query failed", "details": str(err)}), 500
     finally:
@@ -223,6 +244,52 @@ def get_liked_papers():
         return jsonify({"error": "Database error", "details": str(err)}), 500
     finally:
         cursor.close()
+
+
+# Paper Recommendation
+@app.route('/recommend', methods=['GET'])
+def recommend_papers():
+    if 'user_id' not in session:
+        print("Session missing user_id.")
+        return jsonify({"error": "Authentication required"}), 401
+
+    user_id = session.get('user_id')
+
+    print(f"Retrieved user_id from session: {user_id}")
+
+    if not user_id:
+        print("No user_id in session.")
+        return jsonify({"error": "User ID not found in session"}), 400
+
+    try:
+        cursor = db.cursor(dictionary=True)
+
+        cursor.execute("SELECT * FROM User WHERE user_id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            print(f"Invalid user_id: {user_id} does not exist in User table.")
+            return jsonify({"error": "Invalid user ID"}), 400
+        else:
+            print(f"Valid user: {user['username']} ({user['email']})")
+
+        cursor.callproc('RecommendPapers', [int(user_id)])
+        results = []
+
+        for result in cursor.stored_results():
+            results.extend(result.fetchall())
+
+        cursor.close()
+
+        if results:
+            print(f"Recommendations retrieved: {len(results)} papers found.")
+            return jsonify(results), 200
+        else:
+            print("No recommendations found.")
+            return jsonify({"message": "No recommendations available"}), 200
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({"error": "Database query failed", "details": str(err)}), 500
 
 
 if __name__ == '__main__':
