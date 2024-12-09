@@ -314,5 +314,48 @@ def recommend_papers():
         return jsonify({"error": "Database query failed", "details": str(err)}), 500
 
 
+@app.route('/create-leaderboard', methods=['POST'])
+def create_leaderboard():
+    if 'user_id' not in session:
+        return jsonify({"error": "Authentication required"}), 401
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Step 1: Insert a new leaderboard row
+        cursor.execute("""
+            INSERT INTO Leaderboards (ranking_date, time_period_days)
+            VALUES (NOW(), %s)
+        """, (1000,))  # Adjust the `time_period_days` value as needed
+        db.commit()
+        new_leaderboard_id = cursor.lastrowid  # Get the new leaderboard ID
+
+        # Step 2: Call the stored procedure to populate the leaderboard
+        cursor.callproc('GetAndInsertTopRankedPapers', [new_leaderboard_id])
+
+        # Step 3: Fetch papers with their number of likes and titles for this leaderboard
+        cursor.execute("""
+            SELECT ai.paper_id, p.title, COUNT(l.user_id) AS num_likes, ai.ranking
+            FROM AppearsIn ai
+            LEFT JOIN Likes l ON ai.paper_id = l.paper_id
+            JOIN Papers p ON ai.paper_id = p.paper_id
+            WHERE ai.leaderboard_id = %s
+            GROUP BY ai.paper_id, p.title, ai.ranking
+            ORDER BY ai.ranking ASC
+        """, (new_leaderboard_id,))
+        top_papers = cursor.fetchall()
+
+        return jsonify({
+            "leaderboard_id": new_leaderboard_id,
+            "top_papers": top_papers
+        }), 200
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+        return jsonify({"error": "Database operation failed", "details": str(err)}), 500
+    finally:
+        cursor.close()
+
+
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8080, debug=True)

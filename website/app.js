@@ -6,6 +6,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const mostLikedList = document.getElementById("mostLikedList");
   const recommendBtn = document.getElementById("recommendBtn");
   const recommendList = document.getElementById("recommendList");
+  const createLeaderboardBtn = document.getElementById("createLeaderboard"); // Added
+  const leaderboardResults = document.getElementById("leaderboardResults"); // Added
+
 
   // Function to render search results
   const renderSearchResults = (results) => {
@@ -157,4 +160,47 @@ document.addEventListener("DOMContentLoaded", () => {
         recommendList.innerHTML = "<li>Failed to fetch recommendations.</li>";
       });
   });
+
+  createLeaderboardBtn.addEventListener("click", () => {
+    fetch('/create-leaderboard', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => {
+      if (response.status === 401) {
+        alert("You need to log in to create a leaderboard.");
+        window.location.href = 'login.html';
+        return;
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.error) {
+        alert("Error: " + data.error);
+        return;
+      }
+  
+      leaderboardResults.innerHTML = `<h3>Leaderboard</h3>`;
+      const list = document.createElement('ul');
+  
+      data.top_papers.forEach(paper => {
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `
+          <strong>Ranking: ${paper.ranking}</strong>
+          <p>Title: ${paper.title}</p>
+          <p>Number of Likes: ${paper.num_likes}</p>
+        `;
+        list.appendChild(listItem);
+      });
+  
+      leaderboardResults.appendChild(list);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert("Failed to create leaderboard.");
+    });
+  });
+
 });
