@@ -4,6 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const resultList = document.getElementById("resultList");
   // const topPapersDay = document.getElementById("topPapersDay");
   // const topPapersAllTime = document.getElementById("topPapersAllTime");
+  const createLeaderboardBtn = document.getElementById("createLeaderboard"); // Added
+  const leaderboardResults = document.getElementById("leaderboardResults"); // Added
 
   // Update navigation menu
   /*
@@ -97,6 +99,50 @@ document.addEventListener("DOMContentLoaded", () => {
         resultList.innerHTML = "<li>Failed to fetch search results.</li>";
       });
   });
+
+  createLeaderboardBtn.addEventListener("click", () => {
+    fetch('/create-leaderboard', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => {
+      if (response.status === 401) {
+        alert("You need to log in to create a leaderboard.");
+        window.location.href = 'login.html';
+        return;
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.error) {
+        alert("Error: " + data.error);
+        return;
+      }
+  
+      leaderboardResults.innerHTML = `<h3>Leaderboard</h3>`;
+      const list = document.createElement('ul');
+  
+      data.top_papers.forEach(paper => {
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `
+          <strong>Ranking: ${paper.ranking}</strong>
+          <p>Title: ${paper.title}</p>
+          <p>Number of Likes: ${paper.num_likes}</p>
+        `;
+        list.appendChild(listItem);
+      });
+  
+      leaderboardResults.appendChild(list);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert("Failed to create leaderboard.");
+    });
+  });
+  
+  
 
   // Remove fetchLeaderboards and its invocation
   /*  const fetchLeaderboards = () => {    fetch("/top-papers-day")      .then((response) => response.json())      .then((data) => renderLeaderboards(data, topPapersDay))      .catch((error) => {        console.error("Error fetching top papers of the day:", error);        topPapersDay.innerHTML = "<li>Failed to fetch top papers of the day.</li>";      });    fetch("/top-papers-all-time")      .then((response) => response.json())      .then((data) => renderLeaderboards(data, topPapersAllTime))      .catch((error) => {        console.error("Error fetching top papers of all time:", error);        topPapersAllTime.innerHTML = "<li>Failed to fetch top papers of all time.</li>";      });  };  fetchLeaderboards();  */});
