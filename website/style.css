@@ -102,3 +102,19 @@ h2 {
 .leaderboard-group div {
   width: 48%;
 }
+
+#recommendBtn {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#recommendBtn:hover {
+  background-color: #0056b3;
+}
+
+
